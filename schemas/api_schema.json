@@ -1,0 +1,26 @@
+[
+  {
+    "route": "/forex/{id}",
+    "is_route_dynamic": "true",
+    "method": "get",
+    "request_body": "None",
+    "response": {
+      "id": "number",
+      "pair": "string",
+      "price": "number"
+    }
+  },
+  {
+    "route": "/forex",
+    "is_route_dynamic": "false",
+    "method": "get",
+    "request_body": "None",
+    "response": [
+      {
+        "id": "number",
+        "pair": "string",
+        "price": "number"
+      }
+    ]
+  }
+]
