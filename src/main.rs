@@ -23,6 +23,4 @@ async fn main() {
         .expect("Error creating Managing Agent");
 
     managing_agent.execute_project().await;
-
-    dbg!(managing_agent);
 }

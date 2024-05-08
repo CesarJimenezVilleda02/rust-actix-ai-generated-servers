@@ -1,67 +1,114 @@
 use actix_cors::Cors;
 use actix_web::{http::header, web, App, HttpResponse, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
-use reqwest::Client as HttpClient;
-use async_trait::async_trait;
 use std::collections::HashMap;
+use std::fs;
+use std::io::Write;
 use std::sync::Mutex;
-use tokio::sync::Mutex as AsyncMutex;
-use std::sync::Arc;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct ForexPair {
+struct Article {
     id: u64,
-    pair: String,
-    price: f64,
+    author: String,
+    description: String,
+    r#abstract: String,
+    platform_link: String,
+    download_urls: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Database {
-    forex_pairs: HashMap<u64, ForexPair>,
+    articles: HashMap<u64, Article>,
 }
 
 impl Database {
     fn new() -> Self {
         Self {
-            forex_pairs: HashMap::new(),
+            articles: HashMap::new(),
         }
     }
 
-    fn insert(&mut self, forex_pair: ForexPair) {
-        self.forex_pairs.insert(forex_pair.id, forex_pair);
+    fn insert(&mut self, article: Article) {
+        self.articles.insert(article.id, article);
     }
 
-    fn get(&self, id: &u64) -> Option<&ForexPair> {
-        self.forex_pairs.get(id)
+    fn get(&self, id: &u64) -> Option<&Article> {
+        self.articles.get(id)
     }
 
-    fn get_all(&self) -> Vec<&ForexPair> {
-        self.forex_pairs.values().collect()
+    fn get_all(&self) -> Vec<&Article> {
+        self.articles.values().collect()
+    }
+
+    fn delete(&mut self, id: &u64) {
+        self.articles.remove(id);
+    }
+
+    fn update(&mut self, article: Article) {
+        self.articles.insert(article.id, article);
+    }
+
+    fn save_to_file(&self) -> std::io::Result<()> {
+        let data: String = serde_json::to_string(&self)?;
+        let mut file: fs::File = fs::File::create("database.json")?;
+        file.write_all(data.as_bytes())?;
+        Ok(())
+    }
+
+    fn load_from_file() -> std::io::Result<Self> {
+        let file_content: String = fs::read_to_string("database.json")?;
+        let db: Database = serde_json::from_str(&file_content)?;
+        Ok(db)
     }
 }
 
 struct AppState {
-    db: Arc<AsyncMutex<Database>>,
+    db: Mutex<Database>,
 }
 
-async fn get_forex_price(app_state: web::Data<AppState>, id: web::Path<u64>) -> impl Responder {
-    let db = app_state.db.lock().await;
+async fn create_article(app_state: web::Data<AppState>, article: web::Json<Article>) -> impl Responder {
+    let mut db: std::sync::MutexGuard<Database> = app_state.db.lock().unwrap();
+    db.insert(article.into_inner());
+    let _ = db.save_to_file();
+    HttpResponse::Ok().finish()
+}
+
+async fn read_article(app_state: web::Data<AppState>, id: web::Path<u64>) -> impl Responder {
+    let db: std::sync::MutexGuard<Database> = app_state.db.lock().unwrap();
     match db.get(&id.into_inner()) {
-        Some(forex_pair) => HttpResponse::Ok().json(forex_pair),
+        Some(article) => HttpResponse::Ok().json(article),
         None => HttpResponse::NotFound().finish(),
     }
 }
 
-async fn get_all_forex_prices(app_state: web::Data<AppState>) -> impl Responder {
-    let db = app_state.db.lock().await;
-    let forex_pairs = db.get_all();
-    HttpResponse::Ok().json(forex_pairs)
+async fn read_all_articles(app_state: web::Data<AppState>) -> impl Responder {
+    let db: std::sync::MutexGuard<Database> = app_state.db.lock().unwrap();
+    let articles = db.get_all();
+    HttpResponse::Ok().json(articles)
+}
+
+async fn update_article(app_state: web::Data<AppState>, article: web::Json<Article>) -> impl Responder {
+    let mut db: std::sync::MutexGuard<Database> = app_state.db.lock().unwrap();
+    db.update(article.into_inner());
+    let _ = db.save_to_file();
+    HttpResponse::Ok().finish()
+}
+
+async fn delete_article(app_state: web::Data<AppState>, id: web::Path<u64>) -> impl Responder {
+    let mut db: std::sync::MutexGuard<Database> = app_state.db.lock().unwrap();
+    db.delete(&id.into_inner());
+    let _ = db.save_to_file();
+    HttpResponse::Ok().finish()
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let db: Database = Database::new();
-    let data: web::Data<AppState> = web::Data::new(AppState { db: Arc::new(AsyncMutex::new(db)) });
+    let db: Database = match Database::load_from_file() {
+        Ok(db) => db,
+        Err(_) => Database::new(),
+    };
+
+    let data: web::Data<AppState> = web::Data::new(AppState { db: Mutex::new(db) });
 
     HttpServer::new(move || {
         App::new()
@@ -77,8 +124,11 @@ async fn main() -> std::io::Result<()> {
                     .max_age(3600),
             )
             .app_data(data.clone())
-            .route("/forex/{id}", web::get().to(get_forex_price))
-            .route("/forex", web::get().to(get_all_forex_prices))
+            .route("/article", web::post().to(create_article))
+            .route("/article", web::get().to(read_all_articles))
+            .route("/article", web::put().to(update_article))
+            .route("/article/{id}", web::get().to(read_article))
+            .route("/article/{id}", web::delete().to(delete_article))
     })
     .bind("127.0.0.1:8080")?
     .run()

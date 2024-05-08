@@ -1,48 +1,49 @@
 use crate::models::general::llm::{APIResponse, ChatCompletion, Message};
 use dotenv::dotenv;
-use reqwest::{header, Client};
+use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::Client;
 use std::env;
 
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
-
-// Call LLM API
+// Call Large Language Model (i.e. GPT-4)
 pub async fn call_gpt(messages: Vec<Message>) -> Result<String, Box<dyn std::error::Error + Send>> {
     dotenv().ok();
 
-    // Extract api key info
-    let api_key: String = env::var("OPEN_AI_KEY").expect("Open Ai Key not found in env variables");
-    let api_org: String = env::var("OPEN_AI_ORG").expect("Open Ai ORG not found in env variables");
+    // Extract API Key information
+    let api_key: String =
+        env::var("OPEN_AI_KEY").expect("OPEN_AI_KEY not found in enviornment variables");
+    let api_org: String =
+        env::var("OPEN_AI_ORG").expect("OPEN_AI_ORG not found in enviornment variables");
 
     // Confirm endpoint
     let url: &str = "https://api.openai.com/v1/chat/completions";
 
-    // Create header
-    let mut headers = HeaderMap::new();
+    // Create headers
+    let mut headers: HeaderMap = HeaderMap::new();
 
-    // Create api header
+    // Create api key header
     headers.insert(
         "authorization",
         HeaderValue::from_str(&format!("Bearer {}", api_key))
             .map_err(|e| -> Box<dyn std::error::Error + Send> { Box::new(e) })?,
     );
 
-    // Create org header
+    // Create Open AI Org header
     headers.insert(
-        "OpenAi-Organization",
+        "OpenAI-Organization",
         HeaderValue::from_str(api_org.as_str())
             .map_err(|e| -> Box<dyn std::error::Error + Send> { Box::new(e) })?,
     );
 
     // Create client
-    let client = Client::builder()
+    let client: Client = Client::builder()
         .default_headers(headers)
         .build()
         .map_err(|e| -> Box<dyn std::error::Error + Send> { Box::new(e) })?;
 
-    // Create request
-    let chat_completion = ChatCompletion {
+    // Create chat completion
+    let chat_completion: ChatCompletion = ChatCompletion {
         model: "gpt-4".to_string(),
-        messages: messages,
+        messages,
         temperature: 0.1,
     };
 
@@ -55,7 +56,7 @@ pub async fn call_gpt(messages: Vec<Message>) -> Result<String, Box<dyn std::err
     //     .unwrap();
     // dbg!(res_raw.text().await.unwrap());
 
-    // Extract api response
+    // Extract API Response
     let res: APIResponse = client
         .post(url)
         .json(&chat_completion)
@@ -66,7 +67,9 @@ pub async fn call_gpt(messages: Vec<Message>) -> Result<String, Box<dyn std::err
         .await
         .map_err(|e| -> Box<dyn std::error::Error + Send> { Box::new(e) })?;
 
-    // Send response
+    dbg!(&res);
+
+    // Send Response
     Ok(res.choices[0].message.content.clone())
 }
 
@@ -75,18 +78,24 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_call_gpt() {
-        let messages = vec![Message {
+    async fn tests_call_to_openai() {
+        let message: Message = Message {
             role: "user".to_string(),
-            content: "Hi there this is a test, give me a short response.".to_string(),
-        }];
+            content: "Hi there, this is a test. Give me a short reponse.".to_string(),
+        };
 
-        let response = call_gpt(messages).await;
-        if let Ok(response) = response {
-            dbg!(response);
-            assert!(true);
-        } else {
-            assert!(false);
+        let messages: Vec<Message> = vec![message];
+
+        let res: Result<String, Box<dyn std::error::Error + Send>> = call_gpt(messages).await;
+        match res {
+            Ok(res_str) => {
+                dbg!(res_str);
+                assert!(true);
+            }
+            Err(e) => {
+                dbg!(e);
+                assert!(false);
+            }
         }
     }
 }

@@ -1,26 +1,65 @@
 [
   {
-    "route": "/forex/{id}",
+    "route": "/article",
+    "is_route_dynamic": "false",
+    "method": "post",
+    "request_body": {
+      "id": "number",
+      "author": "string",
+      "description": "string",
+      "abstract": "string",
+      "platform_link": "string",
+      "download_urls": "array"
+    },
+    "response": "None"
+  },
+  {
+    "route": "/article",
+    "is_route_dynamic": "false",
+    "method": "get",
+    "request_body": "None",
+    "response": {
+      "id": "number",
+      "author": "string",
+      "description": "string",
+      "abstract": "string",
+      "platform_link": "string",
+      "download_urls": "array"
+    }
+  },
+  {
+    "route": "/article",
+    "is_route_dynamic": "false",
+    "method": "put",
+    "request_body": {
+      "id": "number",
+      "author": "string",
+      "description": "string",
+      "abstract": "string",
+      "platform_link": "string",
+      "download_urls": "array"
+    },
+    "response": "None"
+  },
+  {
+    "route": "/article/{id}",
     "is_route_dynamic": "true",
     "method": "get",
     "request_body": "None",
     "response": {
       "id": "number",
-      "pair": "string",
-      "price": "number"
+      "author": "string",
+      "description": "string",
+      "abstract": "string",
+      "platform_link": "string",
+      "download_urls": "array"
     }
   },
   {
-    "route": "/forex",
-    "is_route_dynamic": "false",
-    "method": "get",
+    "route": "/article/{id}",
+    "is_route_dynamic": "true",
+    "method": "delete",
     "request_body": "None",
-    "response": [
-      {
-        "id": "number",
-        "pair": "string",
-        "price": "number"
-      }
-    ]
+    "response": "None"
   }
 ]
